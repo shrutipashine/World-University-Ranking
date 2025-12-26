@@ -1,0 +1,84 @@
+
+# =============================
+# 1. Install and Load Packages
+# =============================
+if (!requireNamespace("readr", quietly = TRUE)) install.packages("readr")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+if (!requireNamespace("GGally", quietly = TRUE)) install.packages("GGally")
+
+library(readr)
+library(dplyr)
+
+# =============================
+# 2. Load Data
+# =============================
+data_path <- 'data/cwurData.csv'
+university_data <- read_csv(data_path)
+cat("\nData loaded. Dimensions:", dim(university_data)[1], "rows x", dim(university_data)[2], "columns\n")
+spec(university_data)
+head(university_data)
+head(university_data[, 1:10])
+
+
+# =============================
+# 3. Initial Data Exploration
+# =============================
+cat("\nStructure of the dataset:\n")
+str(university_data)
+
+cat("\nFirst few rows:\n")
+print(head(university_data))
+
+cat("\nSummary statistics:\n")
+print(summary(university_data))
+
+cat("\nMissing values per column:\n")
+print(colSums(is.na(university_data)))
+
+cat("\nNumber of unique values per column:\n")
+print(sapply(university_data, function(x) length(unique(x))))
+
+# =============================
+# 4. Data Cleaning
+# =============================
+# Remove rows with missing values (optional: you can also impute if preferred)
+clean_data <- na.omit(university_data)
+cat("\nRows after removing missing values:", nrow(clean_data), "\n")
+
+# Ensure 'world_rank' is numeric (sometimes it may be character if there are non-numeric ranks)
+if ("world_rank" %in% names(clean_data) && !is.numeric(clean_data$world_rank)) {
+  clean_data$world_rank <- as.numeric(clean_data$world_rank)
+}
+
+# =============================
+# 5. Exploratory Data Analysis (EDA)
+# =============================
+# Correlation matrix for numeric columns
+num_cols <- sapply(clean_data, is.numeric)
+if (sum(num_cols) > 1) {
+  cat("\nCorrelation matrix for numeric columns:\n")
+  cor_matrix <- cor(clean_data[, num_cols], use = "complete.obs")
+  print(cor_matrix)
+}
+
+# Pairwise scatterplots for top numeric variables (if GGally is available)
+if (requireNamespace("GGally", quietly = TRUE)) {
+  library(GGally)
+  ggpairs(clean_data[, num_cols][, 1:min(5, sum(num_cols))])
+}
+
+# Boxplot to check for outliers in a key variable (e.g., score)
+if ("score" %in% names(clean_data)) {
+  boxplot(clean_data$score, main = "Boxplot of University Scores", ylab = "Score", col = "lightgreen")
+}
+
+# Visualize distribution of a key numeric variable (e.g., world_rank)
+if ("world_rank" %in% names(university_data)) {
+  hist(university_data$world_rank, main = "Distribution of World Rank", xlab = "World Rank", col = "skyblue", breaks = 30)
+}
+
+# Visualize distribution of a key categorical variable (e.g., country)
+if ("country" %in% names(university_data)) {
+  barplot(sort(table(university_data$country), decreasing = TRUE)[1:10],
+          las = 2, col = "orange", main = "Top 10 Countries by University Count", ylab = "Number of Universities")
+}

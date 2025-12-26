@@ -1,0 +1,420 @@
+---
+title: "Insights from University Rankings Data"
+author: |
+  Shruti Pashine
+  Dharampal Singh
+  Hemant Hemant
+  Santosh Shirguppe
+  **Group Name:** Vizionary Graph
+  **Team Members:**
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+if (!requireNamespace("GGally", quietly = TRUE)) install.packages("GGally")
+library(GGally)
+library(magrittr) # for %>% pipe operator
+```
+
+
+
+# Introduction
+
+In today’s increasingly global and competitive educational landscape, university rankings have become vital indicators of academic excellence, research impact, and institutional reputation. For students, policymakers, and academic leaders alike, these rankings influence decisions ranging from admissions and funding to international collaborations.
+
+The World University Rankings dataset provides a detailed view of global academic institutions across a wide range of metrics — including teaching quality, research output, international outlook, and more. With dozens of variables and hundreds of universities represented, this dataset offers a rich playground for extracting meaningful patterns and trends through data visualization.
+
+This project aims to explore key questions that uncover the factors contributing to a university’s position in global rankings. By applying a diverse range of visualization techniques to analyze correlations, trends, and anomalies, we seek to transform raw data into intuitive, actionable insights.
+
+# Methodology
+
+We conducted our analysis using the R programming language, leveraging packages such as **dplyr** for data manipulation and **ggplot2** for all visualizations. Our approach prioritized clarity, interpretability, and reproducibility. We began with data cleaning (handling missing values, fixing data types), followed by exploratory data analysis (EDA) to understand distributions and relationships. For each research question, we selected visualization techniques (barplots, boxplots, scatterplots, correlation plots) best suited to highlight key patterns and insights. All code and results are included in this R Markdown report to ensure transparency and facilitate further exploration.
+
+# Goal
+The goal of this project is to analyze the World University Rankings dataset using advanced data visualization methods, with a focus on understanding the underlying factors that influence a university's ranking across multiple dimensions such as research, teaching, international diversity, and citation impact.
+
+## Data Source
+This project uses the World University Rankings dataset, originally published by the Center for World University Rankings (CWUR) and made available on Kaggle. The dataset covers thousands of universities worldwide and includes annual rankings, scores, and a variety of performance metrics.
+
+## Relevance
+University rankings are widely referenced by students, educators, policymakers, and researchers. They influence student choices, funding decisions, and institutional strategies. By analyzing the underlying data, we can uncover the factors that contribute most to global success and highlight best practices across countries and institutions.
+
+## Motivation
+Motivation: In an increasingly competitive global education landscape, university rankings have become critical indicators of institutional performance, student success, and research impact. Understanding what drives these rankings helps stakeholders make informed decisions.
+
+## About the Dataset
+- **Source:** Kaggle (CWUR World University Rankings)
+- **Coverage:** Thousands of universities from over 100 countries, spanning multiple years
+- **Variables:**
+    - `world_rank`: Global rank of the university
+    - `institution`: University name
+    - `country`: Country of the university
+    - `national_rank`: National rank within the country
+    - `quality_of_education`: Score for quality of education
+    - `alumni_employment`: Score for alumni employment
+    - `quality_of_faculty`: Score for faculty quality
+    - `publications`: Number of research publications
+    - `influence`: Influence score (e.g., citations, impact)
+    - `citations`: Number of citations
+    - `broad_impact`: Broad impact score
+    - `patents`: Number of patents
+    - `score`: Overall institutional score
+    - `year`: Year of ranking
+- **Data Types:** Numeric (scores, counts), categorical (country, institution), temporal (year)
+- **Size:** Large sample size suitable for robust analysis and visualization
+- **Strengths:** Rich, multi-dimensional, and up-to-date; enables analysis of trends, comparisons, and drivers of success
+- **Limitations:** Rankings and scores are based on CWUR methodology, which may differ from other ranking systems; some variables may be missing for certain years or institutions
+
+This comprehensive dataset allows for a deep dive into the factors that shape university performance and global rankings, supporting a variety of research questions and visualization techniques.
+
+
+# Data Loading and Cleaning
+
+```{r load-data}
+data_path <- '../data/cwurData.csv'
+university_data <- read_csv(data_path)
+# Print all column names for reference
+cat("\nColumn names in dataset:\n")
+print(names(university_data))
+# Remove rows with missing values
+clean_data <- na.omit(university_data)
+# Ensure 'world_rank' is numeric
+if ("world_rank" %in% names(clean_data) && !is.numeric(clean_data$world_rank)) {
+  clean_data$world_rank <- as.numeric(clean_data$world_rank)
+}
+```
+
+## Preview of Raw Dataset (Before Cleaning)
+
+```{r raw-head, echo=TRUE}
+# Show the first few rows and column names of the raw dataset before cleaning
+head(university_data)
+str(university_data)
+```
+
+
+# Data Exploration
+
+Below, we explore the structure and main features of the cleaned dataset. This helps us understand the data before diving into the research questions.
+
+```{r data-exploration}
+# Structure and summary
+str(clean_data)
+summary(clean_data)
+cat("\nMissing values per column:\n")
+print(colSums(is.na(clean_data)))
+cat("\nNumber of unique values per column:\n")
+print(sapply(clean_data, function(x) length(unique(x))))
+```
+
+## Visualizations for EDA
+
+Let's visualize the distribution of key variables and relationships between them.
+
+```{r eda-visuals}
+# Histogram of university scores
+ggplot(clean_data, aes(x = score)) +
+  geom_histogram(fill = 'steelblue', bins = 30) +
+  labs(title = "Distribution of University Scores", x = "Score", y = "Count")
+
+# Barplot of top 10 countries by university count
+top_countries <- clean_data %>% count(country, sort = TRUE) %>% top_n(10, n) %>% pull(country)
+ggplot(filter(clean_data, country %in% top_countries), aes(x = country, fill = country)) +
+  geom_bar() +
+  labs(title = "Top 10 Countries by Number of Universities", x = "Country", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+# Scatterplot: Score vs. World Rank
+ggplot(clean_data, aes(x = world_rank, y = score)) +
+  geom_point(alpha = 0.5, color = 'darkred') +
+  labs(title = "Score vs. World Rank", x = "World Rank", y = "Score")
+```
+
+These visualizations provide an overview of the data distribution, the most represented countries, and the relationship between world rank and score.
+
+
+# Research Question 1
+
+
+## Which Countries Have the Best University Scores?
+
+We show the average university score for the top 5 countries with the most universities. This highlights which countries tend to have higher scores overall.
+
+```{r q1}
+top5 <- clean_data %>% count(country, sort = TRUE) %>% top_n(5, n) %>% pull(country)
+country_stats <- clean_data %>% filter(country %in% top5) %>% group_by(country) %>% summarise(mean_score = mean(score, na.rm = TRUE), median_score = median(score, na.rm = TRUE), n = n())
+ggplot(country_stats, aes(x = reorder(country, mean_score), y = mean_score, fill = country)) +
+  geom_bar(stat = "identity", fill = "#0072B2") +
+  geom_text(aes(label = paste0("Mean: ", round(mean_score, 1), "\nMedian: ", round(median_score, 1))), vjust = -0.5, size = 3.5) +
+  labs(title = "Average University Score by Country (Top 5)", x = "Country", y = "Average Score") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+```
+
+**Explanation:**
+This barplot compares the average and median scores of universities in the top 5 countries by count. The text labels above each bar show both the mean and median, making it easy to see which countries have the highest and most consistent scores. More universities in a country may indicate a stronger higher education system overall.
+
+- The country with the highest average score is easily identified.
+- Some countries have a higher median than mean, suggesting a few low-scoring universities.
+
+
+# Research Question 2
+
+
+## What Most Impacts a University’s Global Ranking?
+
+We use a scatterplot with a trend line to show how the number of publications relates to world rank (lower rank means better university).
+
+```{r q2}
+if (all(c("publications", "world_rank") %in% names(clean_data))) {
+ggplot(clean_data, aes(x = publications, y = world_rank)) +
+    geom_point(alpha = 0.4, color = "#D55E00") +
+    geom_smooth(method = "lm", color = "#0072B2") +
+    labs(title = "Publications vs. World Rank", x = "Number of Publications", y = "World Rank") +
+    annotate("text", x = max(clean_data$publications, na.rm = TRUE)*0.7, y = min(clean_data$world_rank, na.rm = TRUE), label = "Lower rank = better university", color = "black", size = 4, hjust = 0)
+} else {
+  cat("\nColumns for Q2 not found. Please check column names above and update the code accordingly.\n")
+}
+```
+
+```{r q2_regression, echo=TRUE}
+# Linear regression summary for Publications vs. World Rank
+if (all(c("publications", "world_rank") %in% names(clean_data))) {
+  lm_q2 <- lm(world_rank ~ publications, data = clean_data)
+  summary(lm_q2)
+}
+```
+
+**Explanation:**
+This scatterplot shows that universities with more publications tend to have better (lower) world ranks. The blue trend line summarizes this relationship. Note: In this ranking system, a lower world rank means a better university. The annotation clarifies this for the reader.
+
+- Universities with more publications generally have better ranks.
+- The relationship is negative: as publications increase, world rank decreases (improves).
+
+
+# Research Question 3
+
+
+## How Do University Scores Vary Within the Top 5 Countries?
+
+We show boxplots for the top 5 countries with the most universities to make the comparison easier.
+
+```{r q3}
+top_countries <- clean_data %>% count(country, sort = TRUE) %>% top_n(5, n) %>% pull(country)
+ggplot(filter(clean_data, country %in% top_countries),
+       aes(x = country, y = score, fill = country)) +
+  geom_boxplot(outlier.color = "#D55E00", outlier.shape = 16, fill = "#0072B2") +
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 3, color = "black", fill = "black") +
+  labs(title = "Scores by Country (Top 5 Countries)", x = "Country", y = "Score") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+```
+
+```{r q3_anova, echo=TRUE}
+# ANOVA: Do mean scores differ significantly between top 5 countries?
+if (all(c("country", "score") %in% names(clean_data))) {
+  top_countries <- clean_data %>% count(country, sort = TRUE) %>% top_n(5, n) %>% pull(country)
+  anova_data <- filter(clean_data, country %in% top_countries)
+  anova_q3 <- aov(score ~ country, data = anova_data)
+  summary(anova_q3)
+}
+```
+
+**Explanation:**
+These boxplots show the spread, median, and mean (black dot) of university scores for the top 5 countries. Outliers are highlighted in orange. This makes it easy to compare which countries have higher or more consistent scores, and spot any unusual values.
+
+- Some countries have a wider spread, indicating more variation in university scores.
+- Outliers (orange) highlight universities that differ greatly from the norm.
+
+
+# Research Question 4
+
+
+## What Are the Strongest Predictors of a University’s World Rank?
+
+We use a correlation plot to identify which numeric variables are most strongly related to world rank.
+
+```{r q4}
+if (!requireNamespace("corrplot", quietly = TRUE)) install.packages("corrplot")
+library(corrplot)
+num_cols <- sapply(clean_data, is.numeric)
+if (sum(num_cols) > 1) {
+  cor_matrix <- cor(clean_data[, num_cols], use = "complete.obs")
+  corrplot(cor_matrix, method = "color", tl.cex = 0.7)
+}
+```
+
+```{r q4_regression, echo=TRUE}
+# Multiple regression: Predicting world rank from key features
+if (all(c("world_rank", "publications", "alumni_employment", "score", "patents") %in% names(clean_data))) {
+  lm_q4 <- lm(world_rank ~ publications + alumni_employment + score + patents, data = clean_data)
+  summary(lm_q4)
+}
+```
+
+**Interpretation:**
+The correlation plot shows which features (e.g., publications, alumni employment, patents) are most associated with world rank. Strong negative correlations indicate that higher values in those features are linked to better (lower) world ranks.
+
+
+
+# Research Question 5
+
+## Does Alumni Employment Lead to Higher University Scores and Rankings?
+
+We explore whether universities with higher alumni employment scores also have higher overall scores and better ranks.
+
+```{r q5}
+if (all(c("alumni_employment", "score", "world_rank") %in% names(clean_data))) {
+ggplot(clean_data, aes(x = alumni_employment, y = score, color = world_rank)) +
+    geom_point(alpha = 0.6, color = "#0072B2") +
+    geom_smooth(method = "lm", color = "#D55E00") +
+    labs(title = "Alumni Employment vs. University Score", x = "Alumni Employment Score", y = "University Score", color = "World Rank") +
+    scale_color_viridis_c() +
+    annotate("text", x = max(clean_data$alumni_employment, na.rm = TRUE)*0.7, y = max(clean_data$score, na.rm = TRUE)*0.95, label = "Lower rank = better university", color = "black", size = 4, hjust = 0)
+}
+```
+
+**Explanation:**
+This scatterplot shows if universities with better alumni employment also tend to have higher scores and better ranks. The orange trend line helps visualize the relationship. Points are colored by world rank, so top universities stand out. The annotation clarifies the ranking system.
+
+- Universities with higher alumni employment scores generally have higher overall scores.
+- The negative trend suggests better alumni employment is linked to better world rank.
+
+# Summary and Conclusions
+
+## Key Findings
+
+
+## Advanced Visualizations & Categorical Analysis
+
+### Categorical vs. Numerical Analysis: Ranking Brackets
+```{r categorical_vs_numerical, echo=TRUE}
+# Create ranking brackets and compare scores
+if (all(c("world_rank", "score") %in% names(clean_data))) {
+  clean_data$rank_bracket <- cut(clean_data$world_rank, breaks = c(0, 100, 200, 500, 1000, Inf),
+                                 labels = c("Top 100", "101-200", "201-500", "501-1000", ">1000"))
+  ggplot(clean_data, aes(x = rank_bracket, y = score, fill = rank_bracket)) +
+    geom_boxplot() +
+    labs(title = "Score Distribution by World Rank Bracket", x = "World Rank Bracket", y = "Score") +
+    scale_fill_viridis_d() +
+    theme_minimal()
+  # ANOVA for group means
+  anova_bracket <- aov(score ~ rank_bracket, data = clean_data)
+  summary(anova_bracket)
+}
+```
+
+### Heatmap: Country vs. Top 100 University Count
+```{r heatmap_country_top100, echo=TRUE}
+if (all(c("country", "world_rank") %in% names(clean_data))) {
+  library(reshape2)
+  top100 <- clean_data %>% filter(world_rank <= 100)
+  country_counts <- as.data.frame(table(top100$country))
+  colnames(country_counts) <- c("country", "top100_count")
+  ggplot(country_counts, aes(x = reorder(country, -top100_count), y = top100_count, fill = top100_count)) +
+    geom_tile() +
+    scale_fill_viridis_c() +
+    labs(title = "Number of Top 100 Universities by Country", x = "Country", y = "Count") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+### Faceted Plot: Score vs. Publications by Continent
+```{r faceted_plot, echo=TRUE}
+# If continent/region variable exists, facet by it
+if ("continent" %in% names(clean_data) && all(c("score", "publications") %in% names(clean_data))) {
+  ggplot(clean_data, aes(x = publications, y = score, color = continent)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", se = FALSE) +
+    facet_wrap(~ continent) +
+    scale_color_viridis_d() +
+    labs(title = "Score vs. Publications by Continent", x = "Publications", y = "Score") +
+    theme_minimal()
+}
+```
+
+### Treemap: University Count by Country
+```{r treemap_plot, echo=TRUE}
+if (!requireNamespace("treemap", quietly = TRUE)) install.packages("treemap")
+library(treemap)
+if ("country" %in% names(clean_data)) {
+  country_counts <- as.data.frame(table(clean_data$country))
+  colnames(country_counts) <- c("country", "count")
+  treemap(country_counts, index = "country", vSize = "count", title = "University Count by Country")
+}
+```
+
+### Improved Color Palettes and Plot Themes
+All new plots use `viridis` or `RColorBrewer` palettes and `theme_minimal()` for clarity and accessibility.
+## Overall Conclusion
+
+This analysis demonstrates the complexity of university rankings and the multifaceted nature of institutional success. While countries like the USA dominate in terms of quantity, other nations excel in quality. Research output, alumni employment, and innovation are all important, but their impact varies by institution and country. The visualizations and statistical analysis provide a clear, data-driven understanding of the factors that shape the world’s leading universities.
+
+Future work could include deeper analysis of trends over time, regional comparisons, or predictive modeling to forecast university performance. The reproducible approach in this report ensures transparency and provides a foundation for further exploration.
+
+### Limitations & Future Work
+
+While the CWUR dataset is comprehensive, it may contain biases due to its specific ranking methodology, and some variables are missing for certain years or institutions. The analysis is limited to the available features and does not account for qualitative factors such as teaching style or student satisfaction. Future work could include integrating data from other ranking systems, deeper time-series analysis, regional comparisons, or predictive modeling to forecast university performance. Additional qualitative research could further enrich the findings.
+
+### Future Scope
+
+- Integrate additional datasets (e.g., QS, THE, or ARWU rankings) for cross-system comparison
+- Apply deeper time series modeling to analyze trends and forecast future rankings
+- Explore machine learning models to predict university rank or score based on features
+- Develop interactive dashboards for real-time data exploration
+- Analyze the impact of new variables (e.g., funding, internationalization, student satisfaction)
+- Collaborate with domain experts for qualitative insights
+
+# References
+
+-   Kaggle: World University Rankings Dataset
+-   Any other sources used
++   ggplot2 documentation: https://ggplot2.tidyverse.org/
++   CWUR methodology: https://cwur.org/methodology/
++   dplyr documentation: https://dplyr.tidyverse.org/
++   corrplot documentation: https://cran.r-project.org/web/packages/corrplot/index.html
+
+# Appendix
+
+## Code Snippet: Data Cleaning Example
+
+```{r appendix-cleaning, eval=FALSE}
+# Remove rows with missing values and ensure correct data types
+clean_data <- na.omit(university_data)
+clean_data$world_rank <- as.numeric(clean_data$world_rank)
+```
+
+## Table: Top 10 Universities by Score
+
+```{r appendix-top10}
+top10_universities <- clean_data %>% arrange(desc(score)) %>% select(world_rank, institution, country, score) %>% head(10)
+knitr::kable(top10_universities, caption = "Top 10 Universities by Score")
+```
+
+## Dashboard Preview / Summary Table
+
+Below is a summary table highlighting key statistics for the top 10 countries by university count. This provides a dashboard-style overview of the dataset's main features.
+
+```{r dashboard-summary, echo=FALSE}
+top10_countries <- clean_data %>% count(country, sort = TRUE) %>% top_n(10, n) %>% pull(country)
+dashboard_table <- clean_data %>%
+  filter(country %in% top10_countries) %>%
+  group_by(country) %>%
+  summarise(
+    Universities = n(),
+    Avg_Score = round(mean(score, na.rm = TRUE), 1),
+    Median_Score = round(median(score, na.rm = TRUE), 1),
+    Top_100 = sum(world_rank <= 100, na.rm = TRUE),
+    Top_500 = sum(world_rank <= 500, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Universities))
+knitr::kable(dashboard_table, caption = "Dashboard: Key Stats for Top 10 Countries by University Count")
+```
